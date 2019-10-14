@@ -7,10 +7,12 @@
    [reitit.ring.middleware.exception :as exception]
    [reitit.coercion.spec]
    [reitit.ring.coercion :as coercion]
-   [muuntaja.core :as m]
-   [ring.adapter.jetty :as jetty]))
+   [comment.middleware :as mw]
+   [muuntaja.core :as m]))
 
-(def ok (constantly {:status 200 :body "ok"}))
+(defn ok [{:keys [db]}]
+  (println "db:" db) 
+  {:status 200 :body "yay"})
 
 (def routes 
   [
@@ -46,8 +48,9 @@
                 :parameters {:path {:id int?}}
                 :handler ok}}]]]])
   
-(def router (ring/router routes
-                         {:data {:coercion reitit.coercion.spec/coercion
+(defn router [db] (ring/router routes
+                         {:data {:db db
+                                 :coercion reitit.coercion.spec/coercion
                                  :muuntaja m/instance
                                  :middleware [swagger/swagger-feature
                                               muuntaja/format-negotiate-middleware
@@ -55,18 +58,14 @@
                                               exception/exception-middleware
                                               muuntaja/format-request-middleware
                                               coercion/coerce-request-middleware
-                                              coercion/coerce-response-middleware]}}))
+                                              coercion/coerce-response-middleware
+                                              mw/db]}}))
 
-(def app (ring/ring-handler router
-                            (ring/routes 
-                              (swagger-ui/create-swagger-ui-handler 
-                               {:path "/"}))))
-
-(defn start [] 
- (jetty/run-jetty #'app {:port 3000 :join false})
- (println "server running on port 3000"))
-
-(defn -main [] (start))
+(defn create-app [db] (ring/ring-handler 
+                        (router db)
+                        (ring/routes 
+                          (swagger-ui/create-swagger-ui-handler 
+                            {:path "/"}))))
 
 (comment 
  (r/routes router))
